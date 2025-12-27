@@ -61,6 +61,12 @@ Open http://localhost:3000
 docker compose -f docker-compose.prod.yml up --build
 ```
 
+To map a host folder into the worker downloads directory, set:
+
+```
+HOST_DOWNLOADS_PATH=/path/to/downloads
+```
+
 ### Frontend
 
 ```bash
@@ -113,3 +119,10 @@ Frontend API:
 - Puppeteer needs Chrome/Chromium libraries in production. The worker Dockerfile includes them.
 - The worker container should be able to write to `apps/worker/.session` to persist cookies.
 - Create subfolders inside `apps/worker/downloads` (or symlinks to other drives). These appear in the UI folder selector.
+
+## Frontend auth
+
+Basic auth is enabled by default in the frontend.
+
+- `FRONTEND_AUTH_USER` (default: `root`)
+- `FRONTEND_AUTH_PASS` (default: `root`)
