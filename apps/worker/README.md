@@ -15,7 +15,7 @@ yarn workspace film-queue-worker start
 
 Create `apps/worker/.env` from `apps/worker/.env.example` to inject env vars in dev mode.
 
-- `MAX_CONCURRENT` (default: 2)
+- `MAX_CONCURRENT` (default: 1, enforced)
 - `REDIS_URL` (default: redis://localhost:6379)
 - `REDIS_EVENTS_CHANNEL` (default: download-events)
 - `PUPPETEER_TIMEOUT` (default: 45000)

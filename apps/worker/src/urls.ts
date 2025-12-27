@@ -1,7 +1,13 @@
 import path from "node:path";
 
 export function guessFilename(urlObj: URL, id: string) {
-  const base = path.basename(urlObj.pathname || "");
+  const rawBase = path.basename(urlObj.pathname || "");
+  let base = rawBase;
+  try {
+    base = decodeURIComponent(rawBase);
+  } catch {
+    base = rawBase;
+  }
   if (!base || base === "/" || base === ".") {
     return `download-${id}`;
   }

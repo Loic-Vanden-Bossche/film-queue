@@ -13,6 +13,17 @@ type ToastState = {
   tone: "success" | "error" | "info";
 } | null;
 
+type QueueEvent = {
+  type?: string;
+  jobId?: string;
+  url?: string;
+  bytes?: number;
+  totalBytes?: number | null;
+  filename?: string;
+  error?: string;
+  folder?: string | null;
+};
+
 export default function useQueueData() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,6 +111,70 @@ export default function useQueueData() {
     }
   }, []);
 
+  const applyQueueEvent = useCallback((event: QueueEvent) => {
+    if (!event.jobId || !event.type) return;
+    const now = Date.now();
+    setJobs((prev) => {
+      const existing = prev.find((job) => job.id === event.jobId);
+      const base: Job =
+        existing || {
+          id: event.jobId,
+          url: event.url || "",
+          folder: event.folder ?? null,
+          status: "waiting",
+          createdAt: now,
+          startedAt: null,
+          finishedAt: null,
+          bytes: 0,
+          totalBytes: null,
+          filename: null,
+          error: null,
+        };
+
+      const next: Job = { ...base };
+      if (event.url) next.url = event.url;
+      if (event.folder !== undefined) next.folder = event.folder;
+
+      if (event.type === "started") {
+        next.status = "active";
+        next.startedAt = base.startedAt ?? now;
+        next.finishedAt = null;
+      }
+      if (event.type === "progress") {
+        next.status = "active";
+        next.bytes = event.bytes ?? base.bytes;
+        if (event.totalBytes !== undefined) next.totalBytes = event.totalBytes;
+        next.startedAt = base.startedAt ?? now;
+      }
+      if (event.type === "metadata") {
+        next.status = "active";
+        if (event.totalBytes !== undefined) next.totalBytes = event.totalBytes;
+        next.startedAt = base.startedAt ?? now;
+      }
+      if (event.type === "completed") {
+        next.status = "completed";
+        next.bytes = event.bytes ?? base.bytes;
+        if (event.totalBytes !== undefined) next.totalBytes = event.totalBytes;
+        if (event.filename) next.filename = event.filename;
+        next.finishedAt = now;
+      }
+      if (event.type === "failed") {
+        next.status = "failed";
+        next.error = event.error || base.error;
+        next.finishedAt = now;
+      }
+      if (event.type === "cancelled") {
+        next.status = "cancelled";
+        next.finishedAt = now;
+      }
+
+      if (existing) {
+        return prev.map((job) => (job.id === event.jobId ? next : job));
+      }
+      return [next, ...prev];
+    });
+  }, []);
+
   useEffect(() => {
     const storedFolder =
       typeof window !== "undefined"
@@ -122,17 +197,20 @@ export default function useQueueData() {
     const source = new EventSource("/api/events");
     source.onopen = () => setIsConnected(true);
     source.onerror = () => setIsConnected(false);
-    source.onmessage = () => {
-      fetchJobs();
-      fetchQueueStatus();
-      fetchHealth();
-      fetchFolders();
+    source.onmessage = (message) => {
+      try {
+        const parsed = JSON.parse(message.data) as QueueEvent;
+        if (parsed.type === "ping") return;
+        applyQueueEvent(parsed);
+      } catch {
+        // Ignore malformed events.
+      }
     };
 
     return () => {
       source.close();
     };
-  }, [fetchFolders, fetchHealth, fetchJobs, fetchQueueStatus]);
+  }, [applyQueueEvent]);
 
   useEffect(() => {
     const interval = setInterval(() => setClock(Date.now()), 1000);

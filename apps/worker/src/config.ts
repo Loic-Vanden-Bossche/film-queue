@@ -4,10 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const MAX_CONCURRENT = Number.parseInt(
-  process.env.MAX_CONCURRENT || "2",
-  10,
-);
+export const MAX_CONCURRENT = 1;
 export const REDIS_URL = process.env.REDIS_URL || "redis://localhost:6379";
 export const EVENTS_CHANNEL =
   process.env.REDIS_EVENTS_CHANNEL || "download-events";
