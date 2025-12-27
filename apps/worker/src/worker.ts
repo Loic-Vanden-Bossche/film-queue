@@ -132,7 +132,7 @@ export function startWorker() {
 
       const urlObj = new URL(resolvedUrl);
       const filename = guessFilename(urlObj, job.id || randomUUID());
-      const safeName = `${job.id}-${filename}`;
+      const safeName = filename;
       const targetPath = path.join(resolvedFolder.folderPath, safeName);
       logger.info(
         {
@@ -245,7 +245,7 @@ export function startWorker() {
         url: resolvedUrl,
         bytes,
         totalBytes,
-        filename: safeName,
+        filename,
       });
 
       await connection.del(cancelKey);
@@ -258,12 +258,12 @@ export function startWorker() {
           url: resolvedUrl,
           bytes,
           totalBytes,
-          filename: safeName,
+        filename,
         },
         "Download completed",
       );
 
-      return { filename: safeName, bytes, totalBytes };
+      return { filename, bytes, totalBytes };
     },
     { connection, concurrency: MAX_CONCURRENT },
   );
