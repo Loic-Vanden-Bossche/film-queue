@@ -17,9 +17,8 @@ import { publishEvent } from "./events";
 import { refreshFolderStats, resolveFolderPath } from "./folders";
 import { triggerLibraryScan } from "./jellyfin";
 import logger from "./logger";
-import { resolveProtectedUrl } from "./protected";
 import { connection } from "./redis";
-import { guessFilename, isDailyuploadsUrl, isProtectedUrl } from "./urls";
+import { guessFilename, isDailyuploadsUrl } from "./urls";
 
 type DownloadJob = {
   url: string;
@@ -111,29 +110,9 @@ export function startWorker() {
         }
       }
 
-      if (isProtectedUrl(resolvedUrl)) {
-        logger.info(
-          { jobId: job.id, url: resolvedUrl },
-          "Resolving protected URL",
-        );
-        try {
-          resolvedUrl = await resolveProtectedUrl(resolvedUrl);
-          logger.info(
-            { jobId: job.id, url: job.data.url, resolvedUrl },
-            "Resolved protected URL",
-          );
-        } catch (error) {
-          logger.error(
-            { jobId: job.id, url: job.data.url, err: error },
-            "Failed to resolve protected URL",
-          );
-        }
-      }
-
       const urlObj = new URL(resolvedUrl);
       const filename = guessFilename(urlObj, job.id || randomUUID());
-      const safeName = filename;
-      const targetPath = path.join(resolvedFolder.folderPath, safeName);
+      const targetPath = path.join(resolvedFolder.folderPath, filename);
       logger.info(
         {
           jobId: job.id,
@@ -258,7 +237,7 @@ export function startWorker() {
           url: resolvedUrl,
           bytes,
           totalBytes,
-        filename,
+          filename,
         },
         "Download completed",
       );
