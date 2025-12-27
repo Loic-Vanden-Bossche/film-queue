@@ -1,0 +1,8 @@
+node_modules
+.yarn/cache
+apps/worker/downloads
+apps/worker/.session
+**/.DS_Store
+**/.env
+data
+media
