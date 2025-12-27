@@ -113,12 +113,13 @@ export default function useQueueData() {
 
   const applyQueueEvent = useCallback((event: QueueEvent) => {
     if (!event.jobId || !event.type) return;
+    const jobId = event.jobId;
     const now = Date.now();
     setJobs((prev) => {
-      const existing = prev.find((job) => job.id === event.jobId);
+      const existing = prev.find((job) => job.id === jobId);
       const base: Job =
         existing || {
-          id: event.jobId,
+          id: jobId,
           url: event.url || "",
           folder: event.folder ?? null,
           status: "waiting",
