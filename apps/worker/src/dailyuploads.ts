@@ -121,8 +121,18 @@ async function loginDailyuploads(page: puppeteer.Page) {
   for (const selector of userSelectors) {
     const field = await page.$(selector);
     if (field) {
-      await field.click({ clickCount: 3 });
-      await field.type(DAILYUPLOADS_USER, { delay: 30 });
+      await page.focus(selector).catch(() => undefined);
+      await page.evaluate(
+        (value, sel) => {
+          const input = document.querySelector<HTMLInputElement>(sel);
+          if (input) {
+            input.value = value;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        },
+        DAILYUPLOADS_USER,
+        selector,
+      );
       break;
     }
   }
@@ -130,8 +140,18 @@ async function loginDailyuploads(page: puppeteer.Page) {
   for (const selector of passSelectors) {
     const passField = await page.$(selector);
     if (passField) {
-      await passField.click({ clickCount: 3 });
-      await passField.type(DAILYUPLOADS_PASS, { delay: 30 });
+      await page.focus(selector).catch(() => undefined);
+      await page.evaluate(
+        (value, sel) => {
+          const input = document.querySelector<HTMLInputElement>(sel);
+          if (input) {
+            input.value = value;
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+          }
+        },
+        DAILYUPLOADS_PASS,
+        selector,
+      );
       break;
     }
   }
