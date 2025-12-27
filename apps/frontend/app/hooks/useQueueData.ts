@@ -24,6 +24,7 @@ export default function useQueueData() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [folders, setFolders] = useState<FolderStat[]>([]);
   const [selectedFolder, setSelectedFolder] = useState("");
+  const selectedFolderRef = useRef("");
   const [toast, setToast] = useState<ToastState>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -82,20 +83,22 @@ export default function useQueueData() {
       setFolders(data);
       const preferred = initialFolderRef.current;
       if (preferred && data.some((folder) => folder.name === preferred)) {
+        selectedFolderRef.current = preferred;
         setSelectedFolder(preferred);
         initialFolderRef.current = null;
         return;
       }
       if (
         data.length > 0 &&
-        !data.some((folder) => folder.name === selectedFolder)
+        !data.some((folder) => folder.name === selectedFolderRef.current)
       ) {
+        selectedFolderRef.current = data[0].name;
         setSelectedFolder(data[0].name);
       }
     } catch {
       setFolders([]);
     }
-  }, [selectedFolder]);
+  }, []);
 
   useEffect(() => {
     const storedFolder =
@@ -104,6 +107,7 @@ export default function useQueueData() {
         : null;
     if (storedFolder) {
       initialFolderRef.current = storedFolder;
+      selectedFolderRef.current = storedFolder;
       setSelectedFolder(storedFolder);
     }
     fetchJobs();
@@ -142,10 +146,16 @@ export default function useQueueData() {
   }, [toast]);
 
   useEffect(() => {
+    selectedFolderRef.current = selectedFolder;
     if (!selectedFolder) return;
     if (typeof window === "undefined") return;
     window.localStorage.setItem("filmQueueFolder", selectedFolder);
   }, [selectedFolder]);
+
+  const setSelectedFolderSafe = (value: string) => {
+    selectedFolderRef.current = value;
+    setSelectedFolder(value);
+  };
 
   useEffect(() => {
     const interval = setInterval(fetchHealth, 5000);
@@ -252,7 +262,7 @@ export default function useQueueData() {
     hasLoaded,
     lastUpdated,
     queueUpdating,
-    setSelectedFolder,
+    setSelectedFolder: setSelectedFolderSafe,
     fetchJobs,
     handleSubmit,
     handleCancel,
