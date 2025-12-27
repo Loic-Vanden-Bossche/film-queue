@@ -1,4 +1,14 @@
 services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./data/config:/config
+      - ./data/cache:/cache
+      - ${HOST_DOWNLOADS_PATH:-./apps/worker/downloads}:/media
+
   redis:
     image: redis:8.4.0-alpine
     restart: unless-stopped
