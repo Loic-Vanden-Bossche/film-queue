@@ -94,7 +94,7 @@ Env vars (see `apps/worker/.env.example`):
 - `PUPPETEER_EXECUTABLE_PATH` (optional)
 - `DAILYUPLOADS_USER` / `DAILYUPLOADS_PASS`
 - `DAILYUPLOADS_LOGIN_URL` (default: `https://dailyuploads.net/login`)
-- `DAILYUPLOADS_COOKIE_PATH` (default: `apps/worker/.session/dailyuploads.json`)
+- Dailyuploads sessions are not persisted; the worker logs in fresh per download.
 - `WORKER_HEARTBEAT_KEY` (default: `download-worker:heartbeat`)
 - `WORKER_HEARTBEAT_TTL` (default: `15`)
 - `WORKER_HEARTBEAT_INTERVAL` (default: `5`)

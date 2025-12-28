@@ -1,11 +1,9 @@
-import fs from "node:fs";
-import path from "node:path";
+import fs from "node:fs/promises";
 import { setTimeout } from "node:timers/promises";
 
 import puppeteer from "puppeteer";
 
 import {
-  DAILYUPLOADS_COOKIE_PATH,
   DAILYUPLOADS_LOGIN_URL,
   DAILYUPLOADS_PASS,
   DAILYUPLOADS_USER,
@@ -28,35 +26,6 @@ export type StoredCookie = {
 
 const DAILYUPLOADS_ORIGIN = "https://dailyuploads.net/";
 const DEBUG_DU = process.env.DEBUG_DAILYUPLOADS === "1";
-
-function ensureSessionDir() {
-  const dir = path.dirname(DAILYUPLOADS_COOKIE_PATH);
-  fs.mkdirSync(dir, { recursive: true });
-}
-
-function loadCookiesFromDisk(): StoredCookie[] | null {
-  if (!fs.existsSync(DAILYUPLOADS_COOKIE_PATH)) return null;
-  try {
-    const raw = fs.readFileSync(DAILYUPLOADS_COOKIE_PATH, "utf8");
-    const parsed = JSON.parse(raw) as StoredCookie[];
-    return Array.isArray(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveCookiesToDisk(cookies: StoredCookie[]) {
-  ensureSessionDir();
-  fs.writeFileSync(DAILYUPLOADS_COOKIE_PATH, JSON.stringify(cookies, null, 2));
-}
-
-function cookiesExpired(cookies: StoredCookie[]) {
-  const now = Date.now();
-  return cookies.some((cookie) => {
-    if (!cookie.expires || cookie.expires <= 0) return false;
-    return cookie.expires * 1000 < now;
-  });
-}
 
 function domainMatches(hostname: string, domain?: string) {
   if (!domain) return false;
@@ -88,57 +57,14 @@ export function cookieHeaderForUrl(urlString: string, cookies: StoredCookie[]) {
   return valid.map((cookie) => `${cookie.name}=${cookie.value}`).join("; ");
 }
 
-function normalizeSameSite(
-  v?: string,
-): puppeteer.Protocol.Network.CookieSameSite | undefined {
-  if (!v) return undefined;
-  const s = v.toLowerCase();
-  if (s === "lax") return "Lax";
-  if (s === "strict") return "Strict";
-  if (s === "none") return "None";
-  return undefined;
-}
-
-async function applyCookies(page: puppeteer.Page, cookies: StoredCookie[]) {
-  if (!cookies.length) return;
-
-  // Use `url` to avoid “about:blank” / domain scoping weirdness
-  // and to make Chromium accept them consistently.
-  const params = cookies.map((cookie) => ({
-    url: DAILYUPLOADS_ORIGIN,
-    name: cookie.name,
-    value: cookie.value,
-    domain: cookie.domain,
-    path: cookie.path,
-    expires: cookie.expires,
-    httpOnly: cookie.httpOnly,
-    secure: cookie.secure,
-    sameSite: normalizeSameSite(cookie.sameSite),
-  }));
-
-  // Filter out any cookie missing required values
-  const safeParams = params.filter(
-    (c) => c.name && typeof c.value === "string",
-  );
-  if (!safeParams.length) return;
-
-  await page.setCookie(
-    ...(safeParams as puppeteer.Protocol.Network.CookieParam[]),
-  );
-}
-
 async function debugDump(page: puppeteer.Page, label: string) {
   if (!DEBUG_DU) return;
   try {
-    ensureSessionDir();
     const ts = Date.now();
-    const base = path.join(
-      path.dirname(DAILYUPLOADS_COOKIE_PATH),
-      `du-${label}-${ts}`,
-    );
+    const base = `du-${label}-${ts}`;
     await page.screenshot({ path: `${base}.png`, fullPage: true });
     const html = await page.content();
-    fs.writeFileSync(`${base}.html`, html);
+    await fs.writeFile(`${base}.html`, html);
     logger.info(
       { fileBase: base, url: page.url(), title: await page.title() },
       "Debug dump saved",
@@ -273,9 +199,8 @@ async function loginDailyuploads(page: puppeteer.Page) {
     throw new Error("Login failed for dailyuploads.net (still on login page)");
   }
 
-  const cookies = await page.cookies(DAILYUPLOADS_ORIGIN);
-  saveCookiesToDisk(cookies as StoredCookie[]);
-  logger.info("Saved dailyuploads.net cookies");
+  await page.cookies(DAILYUPLOADS_ORIGIN);
+  logger.info("Logged in to dailyuploads.net");
 }
 
 export async function resolveDailyuploadsUrl(
@@ -333,35 +258,10 @@ export async function resolveDailyuploadsUrl(
       }
     });
 
-    // Establish origin before applying cookies (avoids about:blank issues)
-    await safeGoto(DAILYUPLOADS_ORIGIN, "domcontentloaded");
-
-    const storedCookies = loadCookiesFromDisk() || [];
-    if (storedCookies.length) {
-      logger.info({ count: storedCookies.length }, "Loaded stored cookies");
-      await applyCookies(page, storedCookies);
-    }
-
-    // Now go to target page; networkidle2 can be useful for JS-generated links
+    // Always login with a fresh session (no persistence)
+    await loginDailyuploads(page);
     await safeGoto(urlString, "networkidle2");
-    await debugDump(page, "target-after-first-goto");
-
-    // Better login decision: expired/empty cookies OR redirected to login OR password field visible
-    const needsLogin =
-      storedCookies.length === 0 ||
-      cookiesExpired(storedCookies) ||
-      page.url().includes("/login") ||
-      (await page.$("input[type='password']")) !== null;
-
-    if (needsLogin) {
-      if (isCancelled()) throw new Error("Cancelled");
-      logger.info("Refreshing dailyuploads.net login session");
-      await loginDailyuploads(page);
-
-      // Try again after login
-      await safeGoto(urlString, "networkidle2");
-      await debugDump(page, "target-after-login");
-    }
+    await debugDump(page, "target-after-login");
 
     if (await looksLikeChallenge(page)) {
       await debugDump(page, "target-challenge");
@@ -382,7 +282,6 @@ export async function resolveDailyuploadsUrl(
         const cookies = (await page.cookies(
           DAILYUPLOADS_ORIGIN,
         )) as StoredCookie[];
-        saveCookiesToDisk(cookies);
         return {
           resolvedUrl: directDownloadUrl,
           cookies,
@@ -400,7 +299,6 @@ export async function resolveDailyuploadsUrl(
         const cookies = (await page.cookies(
           DAILYUPLOADS_ORIGIN,
         )) as StoredCookie[];
-        saveCookiesToDisk(cookies);
         return {
           resolvedUrl: currentUrl,
           cookies,
@@ -426,7 +324,6 @@ export async function resolveDailyuploadsUrl(
         const cookies = (await page.cookies(
           DAILYUPLOADS_ORIGIN,
         )) as StoredCookie[];
-        saveCookiesToDisk(cookies);
         return {
           resolvedUrl: candidate,
           cookies,
@@ -437,7 +334,6 @@ export async function resolveDailyuploadsUrl(
     }
 
     const cookies = (await page.cookies(DAILYUPLOADS_ORIGIN)) as StoredCookie[];
-    saveCookiesToDisk(cookies);
     return { resolvedUrl: urlString, cookies, userAgent, referer: page.url() };
   } finally {
     await browser.close();

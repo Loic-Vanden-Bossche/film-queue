@@ -39,9 +39,6 @@ export const DAILYUPLOADS_LOGIN_URL =
   process.env.DAILYUPLOADS_LOGIN_URL || "https://dailyuploads.net/login";
 export const DAILYUPLOADS_USER = process.env.DAILYUPLOADS_USER;
 export const DAILYUPLOADS_PASS = process.env.DAILYUPLOADS_PASS;
-export const DAILYUPLOADS_COOKIE_PATH =
-  process.env.DAILYUPLOADS_COOKIE_PATH ||
-  path.join(__dirname, "..", ".session", "dailyuploads.json");
 export const JELLYFIN_URL = process.env.JELLYFIN_URL || "http://localhost:8096";
 export const JELLYFIN_API_KEY = process.env.JELLYFIN_API_KEY || "";
 export const DEFAULT_USER_AGENT =
