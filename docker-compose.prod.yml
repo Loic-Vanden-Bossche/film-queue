@@ -8,6 +8,7 @@ services:
       - ./data/config:/config
       - ./data/cache:/cache
       - ${HOST_DOWNLOADS_PATH:-./apps/worker/downloads}:/media
+      - /mnt:/mnt
 
   redis:
     image: redis:8.4.0-alpine
@@ -32,7 +33,7 @@ services:
       - "4000:4000"
     volumes:
       - ./data/session:/app/apps/worker/.session
-      - ${HOST_DOWNLOADS_PATH:-./apps/worker/downloads}:/app/apps/worker/downloads
+      - /mnt:/mnt
 
   frontend:
     build:
