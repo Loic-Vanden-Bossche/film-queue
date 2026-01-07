@@ -33,6 +33,7 @@ services:
       - "4000:4000"
     volumes:
       - ./data/session:/app/apps/worker/.session
+      - ${HOST_DOWNLOADS_PATH:-./apps/worker/downloads}:/app/apps/worker/downloads
       - /mnt:/mnt
 
   frontend:
